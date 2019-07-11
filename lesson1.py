@@ -26,7 +26,7 @@ Created on Wed Jul 10 13:11:55 2019
 称呼 = 本片的 | 这片子的 | 本电影的 | 电影的 | 影片的
 分类 = 剧情 | 特效 | 剧本 | 情节 | 画面 | 节奏 | 细节 | 演员 | 男主 | 女主 | 主人公 | 蔡徐坤 | 的的  
 评价 = 一无是处啊 | 无能 | 情怀 | 好 | 很好 | 精彩 | 紧凑啊 | 莫名其妙 | 有趣呀 | 无趣 | 不好 | 神作啊 | 看不懂 | 无法理解 | 简单易懂 | 华丽
-最终评价 = 值得一看 | 不值一看 | 厚颜无耻 | 牢底坐穿 | 爱慕安规
+最终评价 = 值得一看 | 不值一看 | 厚颜无耻 | 超威蓝猫 | 爱慕安规
 '''
 
 import random
@@ -130,3 +130,125 @@ def generate_best(prob_score):
 generate_best(prob_score)
 
 #模型问题 只考虑了三个词内的逻辑，然后现实中句子的逻辑跨度更大，比如实际情况下剧本好和不值一看不会同时出现
+
+#============================================================================================================
+train_txt = []
+for i, sentence in enumerate((codecs.open(r'C:\Users\ric\Desktop\PBL\nlp\train.txt',encoding='utf-8'))):
+    if i % 100 == 0: print(i)
+    train_txt.append(sentence)
+
+
+clean_txt = []
+def clean_string(sen):
+    return''.join(re.findall('\w+',sen.split('++$++')[2]))
+for i in range(len(train_txt)):
+    clean_txt.append(clean_string(train_txt[i]))
+
+words_list = []
+for i in clean_txt:
+    words_list += [ word for word in (list(jieba.cut(i)))]
+
+from collections import Counter
+words_number_dict = Counter(words_list)
+words_number_dict.most_common(10)
+#——————————————————————————————————————————————————————————————————————————————————————————————————————————————
+def is_variable(pat):
+    return pat.startswith('?') and all(s.isalpha() for s in pat[1:])
+
+def pat_match(pattern = 'My ?X told me something',saying= 'My mother is fuking you'):
+    if not pattern or not saying: return []
+    if is_variable(pattern[0]):
+        try:
+            return [(pattern[0],saying[0])] + pat_match(pattern[1:],saying[1:])
+        except TypeError:
+            return False
+    else:
+        if pattern[0] != saying[0]:return False
+        else:
+            return pat_match(pattern[1:],saying[1:])
+
+pat_match('I want ?X a a'.split(),"I want holiday s s".split())
+
+def pat_to_dict(patterns):
+    return {k:v for k,v in patterns}
+
+def subsitite(rule,parsed_rules):
+    if not rule: return []
+    return [parsed_rules.get(rule[0],rule[0])] + subsitite(rule[1:],parsed_rules)
+
+got_patterns = pat_match("I wangt ?X".split(),"I wangt iPhone".split())
+' '.join(subsitite("What if you mean if you got a ?X".split(), pat_to_dict(got_patterns)))
+
+defined_patterns = {
+    "I need ?X": ["Image you will get ?X soon", "Why do you need ?X ?"], 
+    "My ?X told me something": ["Talk about more about your ?X", "How do you think about your ?X ?"]
+}
+
+def get_response(saying,defined_patterns):
+    for rule in defined_patterns.keys():
+        if pat_match('My ?X told me something'.split(),saying.split()):
+            ans = choice(defined_patterns[rule])
+            got_patterns = pat_match(rule.split(),saying.split())
+            continue
+    try:
+        return ' '.join(subsitite(ans.split(), pat_to_dict(got_patterns)))
+    except UnboundLocalError:
+        return print('no matching rule')
+    else:
+        return ' '.join(subsitite(ans.split(), pat_to_dict(got_patterns)))
+get_response('My mother is fuking you',defined_patterns)
+
+#=============================================================================--
+def is_pattern_segment(pattern):
+    return pattern.startswith('?*') and all(a.isalpha() for a in pattern[2:])
+
+from collections import defaultdict
+
+fail = [True, None]
+
+def pat_match_with_seg(pattern, saying):
+    if not pattern or not saying: return []
+    
+    pat = pattern[0]
+    
+    if is_variable(pat):
+        return [(pat, saying[0])] + pat_match_with_seg(pattern[1:], saying[1:])
+    elif is_pattern_segment(pat):
+        match, index = segment_match(pattern, saying)
+        return [match] + pat_match_with_seg(pattern[1:], saying[index:])
+    elif pat == saying[0]:
+        return pat_match_with_seg(pattern[1:], saying[1:])
+    else:
+        return fail
+
+def segment_match(pattern, saying):
+    seg_pat, rest = pattern[0], pattern[1:]
+    seg_pat = seg_pat.replace('?*', '?')
+
+    if not rest: return (seg_pat, saying), len(saying)    
+    
+    for i, token in enumerate(saying):
+        if rest[0] == token and is_match(rest[1:], saying[(i + 1):]):
+            return (seg_pat, saying[:i]), i
+    
+    return (seg_pat, saying), len(saying)
+
+def is_match(rest, saying):
+    if not rest and not saying:
+        return True
+    if not all(a.isalpha() for a in rest[0]):
+        return True
+    if rest[0] != saying[0]:
+        return False
+    return is_match(rest[1:], saying[1:])
+
+def strStr(source="aadf", target="a"):
+    longth = len(target)
+    for i in range(len(source)-longth+1):
+#        print(i)
+        if source[i:i+longth] == target:
+            print(i)
+            return i
+    return -1
+
+sorted([2,3,4,1,2])
